@@ -30,7 +30,7 @@ def fetch_bitcoin_prices():
     df["date"] = pd.to_datetime(df["timestamp"], unit="s")
     
     # Define the path to save the CSV file
-    save_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "bitcoin_hourly_prices.csv")
+    save_path = os.path.join("data", "raw", "bitcoin_hourly_prices.csv")
     
     # Save the data to a CSV file
     df.to_csv(save_path, index=False)
