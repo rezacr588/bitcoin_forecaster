@@ -2,6 +2,7 @@ from keras.models import Sequential
 from keras.layers import LSTM, Dense
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import numpy as np
+import config
 
 def build_lstm_model(sequence_length, n_features=6):
     """
@@ -36,23 +37,18 @@ def train_model(model, generator, epochs=50):
     history = model.fit(generator, epochs=epochs)
     return history
 
-def predict_next_hour(model, last_sequence, scaler):
-    """
-    Predict the next hour's Bitcoin price.
+def predict_next_hour(model, data, scaler):
+    # Extract the last sequence from the data
+    last_sequence_df = data.tail(config.SEQUENCE_LENGTH)
     
-    Parameters:
-    - model: Trained LSTM model.
-    - last_sequence: Last sequence of data to base the prediction on.
-    - scaler: MinMaxScaler object used to scale the data.
+    # Ensure the sequence contains all the required features
+    last_sequence = last_sequence_df[['open', 'high', 'low', 'close', 'volume', 'quote_volume']].values
     
-    Returns:
-    - predicted_price: Predicted price for the next hour.
-    """
     # Scale the last_sequence
-    last_sequence_scaled = scaler.transform(last_sequence.reshape(-1, 1))
+    last_sequence_scaled = scaler.transform(last_sequence)
     
     # Reshape the last_sequence_scaled to match the input shape for LSTM
-    last_sequence_scaled = last_sequence_scaled.reshape((1, last_sequence_scaled.shape[0], 1))
+    last_sequence_scaled = last_sequence_scaled.reshape((1, last_sequence_scaled.shape[0], last_sequence_scaled.shape[1]))
     
     predicted_scaled = model.predict(last_sequence_scaled)
     predicted_price = scaler.inverse_transform(predicted_scaled)

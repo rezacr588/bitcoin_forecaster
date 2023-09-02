@@ -2,7 +2,6 @@ import os
 from keras.models import load_model
 from keras.callbacks import EarlyStopping
 import config
-
 from src.data.data_fetcher import fetch_bitcoin_prices
 from src.features.data_preprocessor import preprocess_data
 from src.models.model_utils import build_lstm_model, evaluate_model
@@ -21,11 +20,8 @@ def train():
     else:
         model = build_lstm_model(config.SEQUENCE_LENGTH)
 
-    # Add early stopping to prevent overfitting
-    early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
-
     # Train model
-    model.fit(train_generator, epochs=config.EPOCHS, validation_data=test_generator, callbacks=[early_stopping])
+    model.fit(train_generator, epochs=config.EPOCHS, validation_data=test_generator)
 
     # Save the trained model
     model.save(model_path)
