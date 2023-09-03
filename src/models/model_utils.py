@@ -36,25 +36,23 @@ def train_model(model, generator, epochs=50):
     history = model.fit(generator, epochs=epochs)
     return history
 
-def predict_next_hour(model, last_sequence, scaler):
+def predict_next_hour(model, last_sequence_scaled, scaler):
     """
     Predict the next hour's Bitcoin price.
     
     Parameters:
     - model: Trained LSTM model.
-    - last_sequence: Last sequence of data to base the prediction on.
+    - last_sequence_scaled: Last scaled sequence of data to base the prediction on.
     - scaler: MinMaxScaler object used to scale the data.
     
     Returns:
     - predicted_price: Predicted price for the next hour.
     """
-    # Scale the last_sequence
-    last_sequence_scaled = scaler.transform(last_sequence.reshape(-1, 1))
     
     # Reshape the last_sequence_scaled to match the input shape for LSTM
-    last_sequence_scaled = last_sequence_scaled.reshape((1, last_sequence_scaled.shape[0], 1))
+    last_sequence_reshaped = last_sequence_scaled.reshape((1, last_sequence_scaled.shape[0], 1))
     
-    predicted_scaled = model.predict(last_sequence_scaled)
+    predicted_scaled = model.predict(last_sequence_reshaped)
     predicted_price = scaler.inverse_transform(predicted_scaled)
     return predicted_price[0][0]
 

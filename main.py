@@ -1,12 +1,8 @@
 from train_model import train
 from predict import predict
 from evaluate_model import evaluate
-import tensorflow as tf
 
 def main():
-    print("Welcome to the Bitcoin Price Forecaster!")
-    print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
-
     while True:
         choice = input("Enter 'train' to train the model, 'predict' to make a prediction, 'evaluate' to evaluate the model, or 'exit' to quit: ").lower()
         if choice == 'train':

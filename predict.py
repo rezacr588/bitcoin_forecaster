@@ -1,49 +1,78 @@
 from keras.models import load_model
-import joblib
+import pickle
 from src.data.data_fetcher import fetch_bitcoin_prices
 import config
 
-def load_resources(model_path, scaler_path):
-    """Load the trained model and the scaler."""
-    model = load_model(model_path)
-    scaler = joblib.load(scaler_path)
-    return model, scaler
-
-def extract_last_sequence(data, sequence_length):
-    """Extract the last sequence from the data."""
-    return data['close'].tail(sequence_length).values.astype('float32').reshape(-1, 1)
-
-def predict_next_hour(model, last_sequence, scaler):
-    """Predict the next hour's Bitcoin price."""
-    # Ensure the input shape matches the model's input shape
-    last_sequence_reshaped = last_sequence.reshape((1, last_sequence.shape[0], 1))
+def preprocess_unseen_data(data, sequence_length, scaler_path="models/scaler.pkl"):
+    """
+    Preprocess the unseen data for LSTM prediction.
     
-    # Predict the next hour's price using the model
+    Parameters:
+    - data: DataFrame containing the unseen data.
+    - sequence_length: Number of time steps for LSTM sequences.
+    - scaler_path: Path to the saved scaler.
+    
+    Returns:
+    - last_sequence_scaled: The last sequence from the unseen data, scaled and ready for prediction.
+    - scaler: The scaler used for normalization.
+    """
+    
+    # Load the saved scaler
+    with open(scaler_path, "rb") as f:
+        scaler = pickle.load(f)
+
+    # Extract target from the unseen data
+    target = data['close'].values
+
+    # Normalize the target using the saved scaler
+    target_scaled = scaler.transform(target.reshape(-1, 1))
+
+    # Extract the last sequence for prediction
+    last_sequence_scaled = target_scaled[-sequence_length:]
+    
+    return last_sequence_scaled, scaler
+
+def predict_next_hour(model, last_sequence_scaled, scaler):
+    """
+    Predict the next hour's Bitcoin price.
+    
+    Parameters:
+    - model: Trained LSTM model.
+    - last_sequence_scaled: Last scaled sequence of data to base the prediction on.
+    - scaler: MinMaxScaler object used to scale the data.
+    
+    Returns:
+    - predicted_price: Predicted price for the next hour.
+    """
+    
+    # Reshape the last_sequence_scaled to match the input shape for LSTM
+    last_sequence_reshaped = last_sequence_scaled.reshape((1, last_sequence_scaled.shape[0], 1))
+    
     predicted_scaled = model.predict(last_sequence_reshaped)
-    
-    # Inverse transform the prediction to get the actual price
     predicted_price = scaler.inverse_transform(predicted_scaled)
-    
     return predicted_price[0][0]
 
 def predict():
-    # Constants
-    MODEL_PATH = "models/bitcoin_lstm_model.h5"
-    SCALER_PATH = "models/scaler.pkl"
+    """
+    Predict on unseen data using the trained LSTM model.
+    
+    Parameters:
+    - data: DataFrame containing the unseen data.
+    - model_path: Path to the trained LSTM model.
+    - sequence_length: Number of time steps for LSTM sequences.
+    
+    Returns:
+    - predicted_price: Predicted price for the next hour.
+    """
+    unseen_data = fetch_bitcoin_prices()
+    model_path="models/bitcoin_lstm_model.h5"
+    sequence_length=config.SEQUENCE_LENGTH
+    # Preprocess the unseen data
+    last_sequence_scaled, scaler = preprocess_unseen_data(unseen_data, sequence_length)
 
-    # Load necessary resources
-    model, scaler = load_resources(MODEL_PATH, SCALER_PATH)
+    # Load the trained LSTM model
+    model = load_model(model_path)
 
-    # Fetch the latest data
-    data = fetch_bitcoin_prices()
-
-    # Extract the last sequence for prediction
-    last_sequence = extract_last_sequence(data, config.SEQUENCE_LENGTH)
-
-    # Predict the next hour's price using the predict_next_hour function
-    predicted_price = predict_next_hour(model, last_sequence, scaler)
-
+    # Predict using the LSTM model
+    predicted_price = predict_next_hour(model, last_sequence_scaled, scaler)
     print(f"Predicted Bitcoin Price for the Next Hour: ${predicted_price:.2f}")
-
-if __name__ == "__main__":
-    predict()
