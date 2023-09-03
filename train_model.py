@@ -31,9 +31,6 @@ def train():
     print("Model Evaluation Metrics:")
     for metric, value in metrics.items():
         print(f"{metric}: {value:.4f}")
-    last_sequence = data['close'].values[-config.SEQUENCE_LENGTH:]
-    predicted_price = predict_next_hour(model, last_sequence, scaler)
-    print(f"Predicted Bitcoin Price for Next Hour: ${predicted_price:.2f}")
 
 
 if __name__ == "__main__":
