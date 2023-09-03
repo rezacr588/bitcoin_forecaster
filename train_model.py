@@ -4,7 +4,7 @@ from keras.callbacks import EarlyStopping
 import config
 from src.data.data_fetcher import fetch_bitcoin_prices
 from src.features.data_preprocessor import preprocess_data
-from src.models.model_utils import build_lstm_model, evaluate_model
+from src.models.model_utils import build_lstm_model, evaluate_model, predict_next_hour
 
 def train():
     # Fetch data
@@ -31,6 +31,10 @@ def train():
     print("Model Evaluation Metrics:")
     for metric, value in metrics.items():
         print(f"{metric}: {value:.4f}")
+    last_sequence = data['close'].values[-config.SEQUENCE_LENGTH:]
+    predicted_price = predict_next_hour(model, last_sequence, scaler)
+    print(f"Predicted Bitcoin Price for Next Hour: ${predicted_price:.2f}")
+
 
 if __name__ == "__main__":
     train()
