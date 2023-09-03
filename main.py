@@ -1,4 +1,5 @@
 from train_model import train
+from evaluate import evaluate
 from predict import predict
 
 def main():
@@ -8,6 +9,8 @@ def main():
             train()
         elif choice == 'predict':
             predict()
+        elif choice == 'evaluate':
+            evaluate()
         elif choice == 'exit':
             break
         else:

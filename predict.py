@@ -21,14 +21,14 @@ def preprocess_unseen_data(data, sequence_length, scaler_path="models/scaler.pkl
     with open(scaler_path, "rb") as f:
         scaler = pickle.load(f)
 
-    # Extract target from the unseen data
-    target = data['close'].values
+    # Extract features from the unseen data
+    features = data.values
 
-    # Normalize the target using the saved scaler
-    target_scaled = scaler.transform(target.reshape(-1, 1))
+    # Normalize the features using the saved scaler
+    features_scaled = scaler.transform(features)
 
     # Extract the last sequence for prediction
-    last_sequence_scaled = target_scaled[-sequence_length:]
+    last_sequence_scaled = features_scaled[-sequence_length:]
     
     return last_sequence_scaled, scaler
 
@@ -46,11 +46,11 @@ def predict_next_hour(model, last_sequence_scaled, scaler):
     """
     
     # Reshape the last_sequence_scaled to match the input shape for LSTM
-    last_sequence_reshaped = last_sequence_scaled.reshape((1, last_sequence_scaled.shape[0], 1))
+    last_sequence_reshaped = last_sequence_scaled.reshape((1, last_sequence_scaled.shape[0], last_sequence_scaled.shape[1]))
     
     predicted_scaled = model.predict(last_sequence_reshaped)
-    predicted_price = scaler.inverse_transform(predicted_scaled)
-    return predicted_price[0][0]
+    predicted_price = scaler.inverse_transform(predicted_scaled)[:, -1]  # Assuming 'close' is the last column
+    return predicted_price[0]
 
 def predict():
     """
