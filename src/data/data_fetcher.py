@@ -9,11 +9,10 @@ def fetch_bitcoin_prices():
     # Define the endpoint URL (Cryptowatch API for hourly data)
     url = config.API_ENDPOINT
     
-    # Define the parameters: 3600 seconds for hourly data and a span of 6 months
-    # Note: The 'after' parameter might need adjustments based on the exact date range you want.
+    # Define the parameters: 3600 seconds for hourly data and a span of 1 year
     params = {
         "periods": "3600",
-        "after": int((pd.Timestamp.now() - pd.DateOffset(months=6)).timestamp())
+        "after": int((pd.Timestamp.now() - pd.DateOffset(years=1)).timestamp())
     }
     
     # Make the API request

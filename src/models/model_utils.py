@@ -1,5 +1,6 @@
 from keras.models import Sequential
 from keras.layers import LSTM, Dense
+from keras.callbacks import ReduceLROnPlateau
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import numpy as np
 import config
@@ -16,25 +17,31 @@ def build_lstm_model(sequence_length, n_features=5):
     - model: Compiled LSTM model.
     """
     model = Sequential()
-    model.add(LSTM(50, input_shape=(sequence_length, n_features), return_sequences=True))
-    model.add(LSTM(50))
+    model.add(LSTM(config.UNITS, input_shape=(sequence_length, n_features), return_sequences=True))
+    model.add(LSTM(config.UNITS))
     model.add(Dense(1))
     model.compile(optimizer='adam', loss='mse')
     return model
 
-def train_model(model, generator, epochs=50):
+def train_model(model, generator, validation_data=None, epochs=50):
     """
     Train the LSTM model.
     
     Parameters:
     - model: LSTM model to be trained.
     - generator: TimeseriesGenerator object for training data.
+    - validation_data: Validation data generator (optional).
     - epochs: Number of training epochs.
     
     Returns:
     - history: Training history.
     """
-    history = model.fit(generator, epochs=epochs)
+    
+    # Using ReduceLROnPlateau callback
+    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.00001)
+    callbacks = [reduce_lr]
+    
+    history = model.fit(generator, validation_data=validation_data, epochs=epochs, callbacks=callbacks)
     return history
 
 def predict_next_hour(model, last_sequence_scaled, scaler):

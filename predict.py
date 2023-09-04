@@ -22,7 +22,7 @@ def preprocess_unseen_data(data, sequence_length, scaler_path="models/scaler.pkl
         scaler = pickle.load(f)
 
     # Extract features from the unseen data
-    features = data.values
+    features = data[['open', 'high', 'low', 'close', 'volume']].values
 
     # Normalize the features using the saved scaler
     features_scaled = scaler.transform(features)
@@ -49,7 +49,7 @@ def predict_next_hour(model, last_sequence_scaled, scaler):
     last_sequence_reshaped = last_sequence_scaled.reshape((1, last_sequence_scaled.shape[0], last_sequence_scaled.shape[1]))
     
     predicted_scaled = model.predict(last_sequence_reshaped)
-    predicted_price = scaler.inverse_transform(predicted_scaled)[:, -1]  # Assuming 'close' is the last column
+    predicted_price = scaler.inverse_transform(predicted_scaled)
     return predicted_price[0]
 
 def predict():
