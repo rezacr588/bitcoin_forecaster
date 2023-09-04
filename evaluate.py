@@ -9,7 +9,7 @@ import config
 def evaluate():
     model_path = "models/bitcoin_lstm_model.h5"
     scaler_path = "models/scaler.pkl"
-    sequence_length = config.SEQUENCE_LENGTH  # or any other sequence length you've used
+    sequence_length = config.SEQUENCE_LENGTH
 
     # Load the saved model
     model = load_model(model_path)
@@ -27,10 +27,16 @@ def evaluate():
     # Scale the unseen data using the loaded scaler
     features_scaled = scaler.transform(features)
     
-    # Create a TimeseriesGenerator for the unseen data
-    test_generator = TimeseriesGenerator(features_scaled, features_scaled[:, 3], length=sequence_length, batch_size=1)
+    # Split the unseen data into validation and test sets
+    val_size = int(0.2 * len(features_scaled))  # 20% of the data for validation
+    val_features_scaled = features_scaled[-(val_size + sequence_length):-sequence_length]
+    test_features_scaled = features_scaled[-sequence_length:]
     
-    # Evaluate the model on the unseen data to get MSE
+    # Create TimeseriesGenerators for validation and test data
+    val_generator = TimeseriesGenerator(val_features_scaled, val_features_scaled[:, 3], length=sequence_length, batch_size=1)
+    test_generator = TimeseriesGenerator(test_features_scaled, test_features_scaled[:, 3], length=sequence_length, batch_size=1)
+    
+    # Evaluate the model on the test set to get MSE
     loss = model.evaluate(test_generator)
     
     # Calculate RMSE from the loss

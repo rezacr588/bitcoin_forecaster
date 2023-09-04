@@ -12,7 +12,7 @@ def train():
     data = fetch_bitcoin_prices()
 
     # Preprocess data
-    train_generator, test_generator, scaler = preprocess_data(data, config.SEQUENCE_LENGTH)
+    train_generator, val_generator, test_generator, scaler = preprocess_data(data, config.SEQUENCE_LENGTH)
 
     # Determine the number of features from the preprocessed data
     x, _ = train_generator[0]
@@ -29,18 +29,18 @@ def train():
     early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
 
     # Train model with EarlyStopping
-    model.fit(train_generator, epochs=config.EPOCHS, validation_data=test_generator, callbacks=[early_stopping])
+    model.fit(train_generator, epochs=config.EPOCHS, validation_data=val_generator, callbacks=[early_stopping])
 
     # Save the trained model
     model.save(model_path)
     
-    # get the test loss (MSE)
+    # Evaluate the model on the test set to get the loss (MSE)
     loss = model.evaluate(test_generator)
 
-    # calculate RMSE from the loss
+    # Calculate RMSE from the loss
     rmse = np.sqrt(loss)
-
-    print(f"Test RMSE: {rmse}")
+    
+    print(f"Test LOSS: {loss}, Test RMSE: {rmse}")
 
 
 if __name__ == "__main__":
