@@ -5,6 +5,7 @@ import config
 from src.data.data_fetcher import fetch_bitcoin_prices
 from src.features.data_preprocessor import preprocess_data
 from src.models.model_utils import build_lstm_model, predict_next_hour
+import numpy as np
 
 def train():
     # Fetch data
@@ -32,6 +33,15 @@ def train():
 
     # Save the trained model
     model.save(model_path)
+    
+    # get the test loss (MSE)
+    loss = model.evaluate(test_generator)
+
+    # calculate RMSE from the loss
+    rmse = np.sqrt(loss)
+
+    print(f"Test RMSE: {rmse}")
+
 
 if __name__ == "__main__":
     train()
