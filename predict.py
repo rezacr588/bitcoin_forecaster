@@ -1,78 +1,39 @@
+import pandas as pd
 from keras.models import load_model
+from keras.preprocessing.sequence import TimeseriesGenerator
+import numpy as np
 import pickle
 from src.data.data_fetcher import fetch_bitcoin_prices
 import config
 
-def preprocess_unseen_data(data, sequence_length, scaler_path="models/scaler.pkl"):
-    """
-    Preprocess the unseen data for LSTM prediction.
+def predict():
+    model_path = "models/bitcoin_lstm_model.h5"
+    scaler_path = "models/scaler.pkl"
+    sequence_length = config.SEQUENCE_LENGTH
+
+    # Load the saved model
+    model = load_model(model_path)
     
-    Parameters:
-    - data: DataFrame containing the unseen data.
-    - sequence_length: Number of time steps for LSTM sequences.
-    - scaler_path: Path to the saved scaler.
+    # Load the unseen data
+    data = fetch_bitcoin_prices()
     
-    Returns:
-    - last_sequence_scaled: The last sequence from the unseen data, scaled and ready for prediction.
-    - scaler: The scaler used for normalization.
-    """
+    # Extract relevant features
+    features = data[['open', 'high', 'low', 'close', 'volume']].values
     
-    # Load the saved scaler
+    # Load the scaler used for the training data
     with open(scaler_path, "rb") as f:
         scaler = pickle.load(f)
-
-    # Extract features from the unseen data
-    features = data[['open', 'high', 'low', 'close', 'volume']].values
-
-    # Normalize the features using the saved scaler
+    
+    # Scale the unseen data using the loaded scaler
     features_scaled = scaler.transform(features)
-
-    # Extract the last sequence for prediction
-    last_sequence_scaled = features_scaled[-sequence_length:]
     
-    return last_sequence_scaled, scaler
-
-def predict_next_hour(model, last_sequence_scaled, scaler):
-    """
-    Predict the next hour's Bitcoin price.
+    # Create a TimeseriesGenerator for the unseen data
+    test_generator = TimeseriesGenerator(features_scaled, features_scaled[:, 3], length=sequence_length, batch_size=1)
     
-    Parameters:
-    - model: Trained LSTM model.
-    - last_sequence_scaled: Last scaled sequence of data to base the prediction on.
-    - scaler: MinMaxScaler object used to scale the data.
+    # Use the model to make predictions on the unseen data
+    predictions_scaled = model.predict(test_generator)
     
-    Returns:
-    - predicted_price: Predicted price for the next hour.
-    """
-    
-    # Reshape the last_sequence_scaled to match the input shape for LSTM
-    last_sequence_reshaped = last_sequence_scaled.reshape((1, last_sequence_scaled.shape[0], last_sequence_scaled.shape[1]))
-    
-    predicted_scaled = model.predict(last_sequence_reshaped)
-    predicted_price = scaler.inverse_transform(predicted_scaled)
-    return predicted_price[0]
-
-def predict():
-    """
-    Predict on unseen data using the trained LSTM model.
-    
-    Parameters:
-    - data: DataFrame containing the unseen data.
-    - model_path: Path to the trained LSTM model.
-    - sequence_length: Number of time steps for LSTM sequences.
-    
-    Returns:
-    - predicted_price: Predicted price for the next hour.
-    """
-    unseen_data = fetch_bitcoin_prices()
-    model_path="models/bitcoin_lstm_model.h5"
-    sequence_length=config.SEQUENCE_LENGTH
-    # Preprocess the unseen data
-    last_sequence_scaled, scaler = preprocess_unseen_data(unseen_data, sequence_length)
-
-    # Load the trained LSTM model
-    model = load_model(model_path)
-
-    # Predict using the LSTM model
-    predicted_price = predict_next_hour(model, last_sequence_scaled, scaler)
-    print(f"Predicted Bitcoin Price for the Next Hour: ${predicted_price:.2f}")
+    # Inverse transform the predictions to get them in the original scale
+    predictions = scaler.inverse_transform(np.hstack((features_scaled[-len(predictions_scaled):, :-1], predictions_scaled)))
+    predicted_close_prices = predictions[:, 3]
+    print(predicted_close_prices)
