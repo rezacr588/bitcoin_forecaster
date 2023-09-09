@@ -1,4 +1,8 @@
-API_ENDPOINT = "https://api.cryptowat.ch/markets/kraken/btcusd/ohlc"
-SEQUENCE_LENGTH = 720
-EPOCHS = 100
-UNITS = 100
+import pandas as pd
+import os
+
+API_ENDPOINT = "https://bitcoin-data-collective.vercel.app/api"
+SEQUENCE_LENGTH = 60 
+EPOCHS = 50
+UNITS = 150
+SAVE_PATH = os.path.join("data", "raw", "bitcoin_hourly_prices.csv")

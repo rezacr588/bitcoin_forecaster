@@ -4,32 +4,22 @@ import requests
 import pandas as pd
 import os
 import config
+import io  # <-- Import the io module
 
-def fetch_bitcoin_prices():
-    # Define the endpoint URL (Cryptowatch API for hourly data)
-    url = config.API_ENDPOINT
+def fetch_and_save_csv():
+    # Define the endpoint URL (Your API endpoint to download the CSV)
+    url = config.API_ENDPOINT + "/download"
     
-    # Define the parameters: 3600 seconds for hourly data and a span of 1 year
-    params = {
-        "periods": "3600",
-        "after": int((pd.Timestamp.now() - pd.DateOffset(years=1)).timestamp())
-    }
-    
-    # Make the API request
-    response = requests.get(url, params=params)
+    # Make the API request to get the CSV data
+    response = requests.get(url)
     response.raise_for_status()  # Raise an error for failed requests
     
-    # Extract the data
-    data = response.json()["result"]["3600"]
-    
-    # Convert the data to a DataFrame
-    df = pd.DataFrame(data, columns=["timestamp", "open", "high", "low", "close", "volume", "quote_volume"])
-    
-    # Convert the timestamp to a readable date format
-    df["date"] = pd.to_datetime(df["timestamp"], unit="s")
+    # Convert the CSV data to a DataFrame using io.StringIO
+    csv_data = response.text
+    df = pd.read_csv(io.StringIO(csv_data)) # pylint: disable=abstract-class-instantiated
     
     # Define the path to save the CSV file
-    save_path = os.path.join("data", "raw", "bitcoin_hourly_prices.csv")
+    save_path = os.path.join("data", "raw", "bitcoin_prices.csv")
     
     # Save the data to a CSV file
     df.to_csv(save_path, index=False)
@@ -38,6 +28,3 @@ def fetch_bitcoin_prices():
     
     # Return the DataFrame
     return df
-
-if __name__ == "__main__":
-    fetch_bitcoin_prices()

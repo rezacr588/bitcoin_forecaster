@@ -3,7 +3,7 @@ from keras.models import load_model
 from keras.preprocessing.sequence import TimeseriesGenerator
 import numpy as np
 import pickle
-from src.data.data_fetcher import fetch_bitcoin_prices
+from src.data.data_fetcher import fetch_and_save_csv
 import config
 
 def predict():
@@ -15,7 +15,7 @@ def predict():
     model = load_model(model_path)
     
     # Load the unseen data
-    data = fetch_bitcoin_prices()
+    data = fetch_and_save_csv()
     
     # Extract relevant features
     features = data[['open', 'high', 'low', 'close', 'volume']].values
@@ -36,4 +36,5 @@ def predict():
     # Inverse transform the predictions to get them in the original scale
     predictions = scaler.inverse_transform(np.hstack((features_scaled[-len(predictions_scaled):, :-1], predictions_scaled)))
     predicted_close_prices = predictions[:, 3]
+    print("Predicted close prices:")
     print(predicted_close_prices)

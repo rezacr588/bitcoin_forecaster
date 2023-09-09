@@ -6,16 +6,10 @@ import numpy as np
 import config
 from sklearn.preprocessing import MinMaxScaler
 
-def build_lstm_model(sequence_length, n_features=5):
+def build_lstm_model(sequence_length, n_features=1):  # Default to 1 feature
     """
     Build and return an LSTM model for time series prediction.
-    
-    Parameters:
-    - sequence_length: Number of time steps the LSTM should consider for prediction.
-    - n_features: Number of features in the dataset.
-    
-    Returns:
-    - model: Compiled LSTM model.
+    ...
     """
     model = Sequential()
     model.add(LSTM(config.UNITS, input_shape=(sequence_length, n_features), return_sequences=True))
@@ -66,52 +60,17 @@ def predict_next_hour(model, last_sequence_scaled, scaler):
     return predicted_price[0][0]
 
 def evaluate_model(model, test_generator, scaler):
-    """
-    Evaluate the performance of the trained LSTM model.
-    
-    Parameters:
-    - model: Trained LSTM model.
-    - test_generator: TimeseriesGenerator object for test data.
-    - scaler: MinMaxScaler object used for data normalization.
-    
-    Prints:
-    - MAE: Mean Absolute Error
-    - MSE: Mean Squared Error
-    - RMSE: Root Mean Squared Error
-    - R2: R-squared score
-    """
-    
-    y_true = []
-    y_pred = []
-    
-    # Assuming 'close' is the 4th column (index 3) in your original data
-    close_scaler = MinMaxScaler()
-    close_scaler.min_ = scaler.min_[3]
-    close_scaler.scale_ = scaler.scale_[3]
-    
-    for i in range(len(test_generator)):
-        X, y = test_generator[i]
-        y_true.append(y[0])
-        
-        # Make prediction
-        predicted_scaled = model.predict(X)
-        
-        # Inverse transform the prediction to original scale using the close_scaler
-        predicted_price = close_scaler.inverse_transform(predicted_scaled)
-        
-        y_pred.append(predicted_price[0][0])
-        
-    y_true = np.array(y_true)
-    y_pred = np.array(y_pred)
-    
-    # Calculate metrics
-    mae = mean_absolute_error(y_true, y_pred)
-    mse = mean_squared_error(y_true, y_pred)
-    rmse = np.sqrt(mse)
-    r2 = r2_score(y_true, y_pred)
-    
-    # Print metrics
-    print(f"Mean Absolute Error (MAE): {mae}")
-    print(f"Mean Squared Error (MSE): {mse}")
-    print(f"Root Mean Squared Error (RMSE): {rmse}")
-    print(f"R-squared (R2): {r2}")
+
+    # Evaluate the model on the test set to get MSE
+    loss = model.evaluate(test_generator)
+
+    # Calculate RMSE from the loss
+    rmse = np.sqrt(loss)
+
+    # Convert RMSE to dollar value
+    rmse_in_dollar = rmse * (scaler.data_max_[0] - scaler.data_min_[0]) + scaler.data_min_[0]
+
+    print(f"Test RMSE (scaled): {rmse}")
+    print(f"Test RMSE in dollar value: ${rmse_in_dollar:.2f}")
+
+    return rmse  # Optionally return the RMSE for further use

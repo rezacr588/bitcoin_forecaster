@@ -1,6 +1,7 @@
 from train_model import train
 from evaluate import evaluate
 from predict import predict
+from src.data.data_fetcher import fetch_and_save_csv
 
 def main():
     while True:
@@ -11,6 +12,8 @@ def main():
             predict()
         elif choice == 'evaluate':
             evaluate()
+        elif choice == 'fetch':
+            fetch_and_save_csv()
         elif choice == 'exit':
             break
         else:
