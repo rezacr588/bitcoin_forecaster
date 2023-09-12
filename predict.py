@@ -4,6 +4,7 @@ from keras.preprocessing.sequence import TimeseriesGenerator
 import numpy as np
 import pickle
 from src.data.data_fetcher import fetch_and_save_csv
+from src.models.model_utils import predict_next_hour
 import config
 
 def predict():

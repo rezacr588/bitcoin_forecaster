@@ -39,27 +39,41 @@ def train_model(model, generator, validation_data=None, epochs=50):
     history = model.fit(generator, validation_data=validation_data, epochs=epochs, callbacks=callbacks)
     return history
 
-def predict_next_hour(model, last_sequence_scaled, scaler):
+def predict_next_hour(model, initial_sequence, scaler):
     """
-    Predict the next hour's Bitcoin price.
+    Predict the Bitcoin price for the next hour (60 minutes).
     
     Parameters:
     - model: Trained LSTM model.
-    - last_sequence_scaled: Last scaled sequence of data to base the prediction on.
-    - scaler: MinMaxScaler object used to scale the data.
+    - initial_sequence: Last 60 minutes of scaled data.
+    - scaler: MinMaxScaler object used for data normalization.
     
     Returns:
-    - predicted_price: Predicted price for the next hour.
+    - predictions: List of predicted prices for the next hour.
     """
     
-    # Reshape the last_sequence_scaled to match the input shape for LSTM
-    last_sequence_reshaped = last_sequence_scaled.reshape((1, last_sequence_scaled.shape[0], last_sequence_scaled.shape[1]))
+    predictions = []
+    current_sequence = initial_sequence.copy()
     
-    predicted_scaled = model.predict(last_sequence_reshaped)
-    predicted_price = scaler.inverse_transform(predicted_scaled)
-    return predicted_price[0][0]
+    for _ in range(60):  # Predict next 60 minutes
+        # Reshape the sequence to match the input shape for LSTM
+        current_sequence_reshaped = current_sequence.reshape((1, current_sequence.shape[0], current_sequence.shape[1]))
+        
+        # Predict the next minute
+        predicted_scaled = model.predict(current_sequence_reshaped)
+        
+        # Inverse transform the prediction to original scale
+        predicted_price = scaler.inverse_transform(predicted_scaled)
+        
+        # Append the predicted price to the predictions list
+        predictions.append(predicted_price[0][0])
+        
+        # Append the predicted scaled value to the end of the current sequence and remove the first value
+        current_sequence = np.append(current_sequence[1:], predicted_scaled, axis=0)
+    
+    return predictions
 
-def evaluate_model(model, test_generator, scaler):
+def evaluate_model(model, test_generator):
 
     # Evaluate the model on the test set to get MSE
     loss = model.evaluate(test_generator)
@@ -68,9 +82,5 @@ def evaluate_model(model, test_generator, scaler):
     rmse = np.sqrt(loss)
 
     # Convert RMSE to dollar value
-    rmse_in_dollar = rmse * (scaler.data_max_[0] - scaler.data_min_[0]) + scaler.data_min_[0]
-
+    print(f"Test MSE (scaled): {loss}")
     print(f"Test RMSE (scaled): {rmse}")
-    print(f"Test RMSE in dollar value: ${rmse_in_dollar:.2f}")
-
-    return rmse  # Optionally return the RMSE for further use

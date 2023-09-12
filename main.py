@@ -1,3 +1,7 @@
+import os
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
 from train_model import train
 from evaluate import evaluate
 from predict import predict
