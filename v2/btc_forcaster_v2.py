@@ -26,7 +26,9 @@ def preprocess_data(data):
     return data_normalized, scaler
 
 def split_data(data_normalized):
-    return train_test_split(data_normalized, test_size=0.2, shuffle=False)
+    train_data, temp = train_test_split(data_normalized, test_size=0.3, shuffle=False)
+    val_data, test_data = train_test_split(temp, test_size=0.67, shuffle=False)  # This will give 20% test, 10% validation
+    return train_data, val_data, test_data
 
 def create_sequences(data, seq_length, steps_ahead=60):
     X, y = [], []
@@ -46,9 +48,9 @@ def get_model(X_train):
         model.compile(optimizer='adam', loss='mean_squared_error')
     return model
 
-def train_model(model, X_train, y_train, X_test, y_test):
+def train_model(model, X_train, y_train, X_val, y_val):
     early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
-    model.fit(X_train, y_train, epochs=50, batch_size=8, validation_data=(X_test, y_test), shuffle=False, callbacks=[early_stop])
+    model.fit(X_train, y_train, epochs=50, batch_size=8, validation_data=(X_val, y_val), shuffle=False, callbacks=[early_stop])
     model.save('bitcoin_lstm_model.h5')
 
 
@@ -69,12 +71,13 @@ def main():
     url = "https://bitcoin-data-collective-rzeraat.vercel.app/api/download_btc"
     data = download_data(url)
     data_normalized, scaler = preprocess_data(data)
-    train_data, test_data = split_data(data_normalized)
+    train_data, val_data, test_data = split_data(data_normalized)
     seq_length = 60
     X_train, y_train = create_sequences(train_data, seq_length)
+    X_val, y_val = create_sequences(val_data, seq_length)  # Create sequences for validation data
     X_test, y_test = create_sequences(test_data, seq_length)
     model = get_model(X_train)
-    train_model(model, X_train, y_train, X_test, y_test)
+    train_model(model, X_train, y_train, X_val, y_val)  # Use validation data during training
     predicted_values_original_scale = make_predictions(model, X_test, scaler)
     mae_in_dollars = calculate_mae(predicted_values_original_scale, y_test, scaler)
     
