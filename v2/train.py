@@ -10,8 +10,6 @@ import requests
 from io import StringIO
 import os
 
-print(tf.__version__)
-
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 def download_data(url):

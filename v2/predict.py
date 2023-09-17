@@ -1,12 +1,12 @@
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 import requests
 from io import StringIO
 import os
+from datetime import datetime, timedelta
 
 print(tf.__version__)
 
@@ -18,30 +18,11 @@ def download_data(url):
     return data
 
 def preprocess_data(data):
+    timestamps = data['TIME'].values  # Save the timestamps
     data = data.drop('TIME', axis=1)
     scaler = MinMaxScaler(feature_range=(0, 1))
     data_normalized = scaler.fit_transform(data)
-    return data_normalized, scaler
-
-def create_sequences(data, seq_length, steps_ahead=60):
-    X, y = [], []
-    for i in range(len(data) - seq_length - steps_ahead + 1):
-        X.append(data[i:i+seq_length])
-        y.append(data[i+seq_length+steps_ahead-1])
-    return np.array(X), np.array(y)
-
-def make_predictions(model, X_test, scaler):
-    predicted_values = model.predict(X_test)
-    predicted_values_original_scale = scaler.inverse_transform(predicted_values)
-    return predicted_values_original_scale
-
-def calculate_mae(predicted_values_original_scale, y_test, scaler):
-    y_test_original_scale = scaler.inverse_transform(y_test)
-    predicted_last_price = predicted_values_original_scale[:, 2]
-    actual_last_price = y_test_original_scale[:, 2]
-    errors_in_dollars = predicted_last_price - actual_last_price
-    mae_in_dollars = np.mean(np.abs(errors_in_dollars))
-    return mae_in_dollars
+    return data_normalized, scaler, timestamps
 
 def main():
     # Load the pre-trained model
@@ -50,25 +31,34 @@ def main():
     # Download and preprocess the data
     url = "https://bitcoin-data-collective-rzeraat.vercel.app/api/download_btc"
     data = download_data(url)
-    data_normalized, scaler = preprocess_data(data)
+    data_normalized, scaler, timestamps = preprocess_data(data)
     
-    # Create sequences for the entire dataset (for demonstration purposes)
-    seq_length = 60
-    X, y = create_sequences(data_normalized, seq_length)
+    # Convert Unix timestamps to readable datetime format
+    readable_timestamps = [datetime.utcfromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S') for ts in timestamps]
     
-    # Make predictions
-    predicted_values_original_scale = make_predictions(model, X, scaler)
+    # Extract the last 60 data points to predict 60 minutes into the future
+    last_60_data_points = data_normalized[-60:]
+    last_data_point_time = readable_timestamps[-1]
     
-    # Calculate MAE
-    mae_in_dollars = calculate_mae(predicted_values_original_scale, y, scaler)
+    # Get the last actual value in its original scale
+    last_actual_value = scaler.inverse_transform([data_normalized[-1]])[0][2]
     
-    # Print the predicted dollar values
-    print("Predicted Dollar Values:")
-    for value in predicted_values_original_scale[:, 2]:  # Assuming LAST_PRICE is the third column
-        print(f"${value:.2f}")
+    # Print the last data point's price and timestamp
+    print(f"Last data point timestamp: {last_data_point_time}")
+    print(f"Last data point price: ${last_actual_value:.2f}\n")
     
-    print(f"\nMean Absolute Error in dollars: ${mae_in_dollars:.2f}")
-    model.summary()
+    # Predict the value 60 minutes into the future
+    predicted_value_normalized = model.predict(last_60_data_points.reshape(1, 60, 4))
+    predicted_value_original_scale = scaler.inverse_transform(predicted_value_normalized)
+    
+    # Calculate the percentage difference from the last data point
+    predicted_value = predicted_value_original_scale[0][2]
+    percentage_diff_from_last = ((predicted_value - last_actual_value) / last_actual_value) * 100
+    
+    # Print the results
+    future_time = datetime.strptime(last_data_point_time, '%Y-%m-%d %H:%M:%S') + timedelta(minutes=60)
+    print(f"Predicted value of Bitcoin at {future_time.strftime('%Y-%m-%d %H:%M:%S')}: ${predicted_value:.2f}")
+    print(f"Percentage Difference from Last Data Point: {percentage_diff_from_last:.2f}%")
 
 if __name__ == "__main__":
     main()
