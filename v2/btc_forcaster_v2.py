@@ -2,12 +2,16 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
-from keras.models import Sequential, load_model
-from keras.layers import LSTM, Dense
+import tensorflow as tf
+from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.layers import LSTM, Dense
+from tensorflow.keras.callbacks import EarlyStopping
 import requests
 from io import StringIO
 import os
-from keras.callbacks import EarlyStopping
+
+print(tf.__version__)
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 def download_data(url):
@@ -32,8 +36,8 @@ def create_sequences(data, seq_length, steps_ahead=60):
     return np.array(X), np.array(y)
 
 def get_model(X_train):
-    if os.path.exists('bitcoin_lstm_model.keras'):
-        model = load_model('bitcoin_lstm_model.keras')
+    if os.path.exists('bitcoin_lstm_model.h5'):
+        model = load_model('bitcoin_lstm_model.h5')
     else:
         model = Sequential()
         model.add(LSTM(50, input_shape=(X_train.shape[1], X_train.shape[2]), return_sequences=True))
@@ -45,7 +49,7 @@ def get_model(X_train):
 def train_model(model, X_train, y_train, X_test, y_test):
     early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
     model.fit(X_train, y_train, epochs=50, batch_size=8, validation_data=(X_test, y_test), shuffle=False, callbacks=[early_stop])
-    model.save('bitcoin_lstm_model.keras')
+    model.save('bitcoin_lstm_model.h5')
 
 
 def make_predictions(model, X_test, scaler):
@@ -80,6 +84,8 @@ def main():
         print(f"${value:.2f}")
     
     print(f"\nMean Absolute Error in dollars: ${mae_in_dollars:.2f}")
+    model.summary()
+
 
 if __name__ == "__main__":
     main()
