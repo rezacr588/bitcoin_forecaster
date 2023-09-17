@@ -9,7 +9,7 @@ from tensorflow.keras.callbacks import EarlyStopping
 import requests
 from io import StringIO
 import os
-from .helper import download_data, preprocess_data, split_data, create_sequences 
+from helper import download_data, preprocess_data, split_data, create_sequences 
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 

@@ -7,7 +7,7 @@ import requests
 from io import StringIO
 import os
 from datetime import datetime, timedelta
-from .helper import download_data
+from helper import download_data
 
 print(tf.__version__)
 
