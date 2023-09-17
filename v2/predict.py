@@ -7,15 +7,11 @@ import requests
 from io import StringIO
 import os
 from datetime import datetime, timedelta
+from .helper import download_data
 
 print(tf.__version__)
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-
-def download_data(url):
-    response = requests.get(url)
-    data = pd.read_csv(StringIO(response.text))
-    return data
 
 def preprocess_data(data):
     timestamps = data['TIME'].values  # Save the timestamps

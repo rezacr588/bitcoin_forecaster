@@ -9,31 +9,9 @@ from tensorflow.keras.callbacks import EarlyStopping
 import requests
 from io import StringIO
 import os
+from .helper import download_data, preprocess_data, split_data, create_sequences 
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-
-def download_data(url):
-    response = requests.get(url)
-    data = pd.read_csv(StringIO(response.text))
-    return data
-
-def preprocess_data(data):
-    data = data.drop('TIME', axis=1)
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    data_normalized = scaler.fit_transform(data)
-    return data_normalized, scaler
-
-def split_data(data_normalized):
-    train_data, temp = train_test_split(data_normalized, test_size=0.3, shuffle=False)
-    val_data, test_data = train_test_split(temp, test_size=0.67, shuffle=False)  # This will give 20% test, 10% validation
-    return train_data, val_data, test_data
-
-def create_sequences(data, seq_length, steps_ahead=60):
-    X, y = [], []
-    for i in range(len(data) - seq_length - steps_ahead + 1):
-        X.append(data[i:i+seq_length])
-        y.append(data[i+seq_length+steps_ahead-1])
-    return np.array(X), np.array(y)
 
 def get_model(X_train):
     if os.path.exists('bitcoin_lstm_model.h5'):
