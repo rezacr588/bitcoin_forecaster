@@ -48,22 +48,9 @@ def get_model(X_train):
 
 def train_model(model, X_train, y_train, X_val, y_val):
     early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
-    model.fit(X_train, y_train, epochs=50, batch_size=8, validation_data=(X_val, y_val), shuffle=False, callbacks=[early_stop])
+    history = model.fit(X_train, y_train, epochs=50, batch_size=8, validation_data=(X_val, y_val), shuffle=False, callbacks=[early_stop])
     model.save('bitcoin_lstm_model.h5')
-
-
-def make_predictions(model, X_test, scaler):
-    predicted_values = model.predict(X_test)
-    predicted_values_original_scale = scaler.inverse_transform(predicted_values)
-    return predicted_values_original_scale
-
-def calculate_mae(predicted_values_original_scale, y_test, scaler):
-    y_test_original_scale = scaler.inverse_transform(y_test)
-    predicted_last_price = predicted_values_original_scale[:, 2]
-    actual_last_price = y_test_original_scale[:, 2]
-    errors_in_dollars = predicted_last_price - actual_last_price
-    mae_in_dollars = np.mean(np.abs(errors_in_dollars))
-    return mae_in_dollars
+    return history
 
 def main():
     url = "https://bitcoin-data-collective-rzeraat.vercel.app/api/download_btc"
@@ -72,21 +59,16 @@ def main():
     train_data, val_data, test_data = split_data(data_normalized)
     seq_length = 60
     X_train, y_train = create_sequences(train_data, seq_length)
-    X_val, y_val = create_sequences(val_data, seq_length)  # Create sequences for validation data
-    X_test, y_test = create_sequences(test_data, seq_length)
+    X_val, y_val = create_sequences(val_data, seq_length)
     model = get_model(X_train)
-    train_model(model, X_train, y_train, X_val, y_val)  # Use validation data during training
-    predicted_values_original_scale = make_predictions(model, X_test, scaler)
-    mae_in_dollars = calculate_mae(predicted_values_original_scale, y_test, scaler)
+    history = train_model(model, X_train, y_train, X_val, y_val)
     
-    # Print the predicted dollar values
-    print("Predicted Dollar Values:")
-    for value in predicted_values_original_scale[:, 2]:  # Assuming LAST_PRICE is the third column
-        print(f"${value:.2f}")
+    # Print training progress details
+    for epoch, loss, val_loss in zip(range(1, len(history.history['loss']) + 1), history.history['loss'], history.history['val_loss']):
+        print(f"Epoch {epoch}/{len(history.history['loss'])} - loss: {loss:.4f} - val_loss: {val_loss:.4f}")
     
-    print(f"\nMean Absolute Error in dollars: ${mae_in_dollars:.2f}")
+    # Print the model summary
     model.summary()
-
 
 if __name__ == "__main__":
     main()
