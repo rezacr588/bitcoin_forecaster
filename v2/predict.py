@@ -6,6 +6,8 @@ import requests
 from io import StringIO
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 def download_data(url):
     response = requests.get(url)
