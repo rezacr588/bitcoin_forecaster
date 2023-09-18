@@ -9,7 +9,8 @@ from tensorflow.keras.callbacks import EarlyStopping
 import requests
 from io import StringIO
 import os
-from helper import download_data, preprocess_data, split_data, create_sequences 
+from helper import download_data, preprocess_data, split_data, create_sequences, evaluate_model 
+from tensorflow.keras.regularizers import l1, l2, l1_l2
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -18,15 +19,26 @@ def get_model(X_train):
         model = load_model('bitcoin_lstm_model.h5')
     else:
         model = Sequential()
-        model.add(LSTM(50, input_shape=(X_train.shape[1], X_train.shape[2]), return_sequences=True))
-        model.add(LSTM(50))
+        
+        # Add L1 and L2 regularization to the LSTM layers
+        model.add(LSTM(50, input_shape=(X_train.shape[1], X_train.shape[2]), return_sequences=True,
+                       kernel_regularizer=l2(0.01),  # L2 regularization to the weights
+                       recurrent_regularizer=l2(0.01),  # L2 regularization to the recurrent weights
+                       bias_regularizer=l1(0.01)))  # L1 regularization to the biases
+        
+        model.add(LSTM(50,
+                       kernel_regularizer=l2(0.01),  # L2 regularization to the weights
+                       recurrent_regularizer=l2(0.01),  # L2 regularization to the recurrent weights
+                       bias_regularizer=l1(0.01)))  # L1 regularization to the biases
+        
         model.add(Dense(4))
-        model.compile(optimizer='adam', loss='mean_squared_error')
+        model.compile(optimizer='adam', loss='mean_absolute_error')
     return model
+
 
 def train_model(model, X_train, y_train, X_val, y_val):
     early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
-    history = model.fit(X_train, y_train, epochs=50, batch_size=8, validation_data=(X_val, y_val), shuffle=False, callbacks=[early_stop])
+    history = model.fit(X_train, y_train, epochs=50, batch_size=60, validation_data=(X_val, y_val), shuffle=False, callbacks=[early_stop])
     model.save('bitcoin_lstm_model.h5')
     return history
 
@@ -38,6 +50,8 @@ def main():
     seq_length = 60
     X_train, y_train = create_sequences(train_data, seq_length)
     X_val, y_val = create_sequences(val_data, seq_length)
+    X_test, y_test = create_sequences(test_data, seq_length)
+
     model = get_model(X_train)
     history = train_model(model, X_train, y_train, X_val, y_val)
     
@@ -47,6 +61,14 @@ def main():
     
     # Print the model summary
     model.summary()
+    # Evaluate the model
+    mae, mse, rmse, r2 = evaluate_model(model, X_test, y_test, scaler)
+    
+    # Print evaluation metrics
+    print(f"Mean Absolute Error (MAE) for Price: ${mae:.2f}")
+    print(f"Mean Squared Error (MSE) for Price: {mse:.4f}")
+    print(f"Root Mean Squared Error (RMSE) for Price: {rmse:.4f}")
+    print(f"R-squared (R2) for Price: {r2:.4f}")
 
 if __name__ == "__main__":
     main()

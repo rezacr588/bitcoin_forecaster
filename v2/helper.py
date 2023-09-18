@@ -5,6 +5,7 @@ from sklearn.model_selection import train_test_split
 import requests
 from io import StringIO
 import os
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -18,6 +19,25 @@ def preprocess_data(data):
     scaler = MinMaxScaler(feature_range=(0, 1))
     data_normalized = scaler.fit_transform(data)
     return data_normalized, scaler
+
+def evaluate_model(model, X_test, y_test, scaler):
+    predictions = model.predict(X_test)
+    
+    # Extracting the price column (assuming it's the third column)
+    y_test_price = y_test[:, 2]
+    predictions_price = predictions[:, 2]
+    
+    # Inverting the scaling to get the original price values
+    y_test_original = scaler.inverse_transform(y_test)[:, 2]
+    predictions_original = scaler.inverse_transform(predictions)[:, 2]
+    
+    # Calculate metrics
+    mae = mean_absolute_error(y_test_original, predictions_original)
+    mse = mean_squared_error(y_test_original, predictions_original)
+    rmse = np.sqrt(mse)
+    r2 = r2_score(y_test_original, predictions_original)
+    
+    return mae, mse, rmse, r2
 
 def split_data(data_normalized):
     train_data, temp = train_test_split(data_normalized, test_size=0.3, shuffle=False)
