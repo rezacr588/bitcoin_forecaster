@@ -105,7 +105,7 @@ def convert_to_local_time(timestamp):
 
 def visualize_predictions(timestamps, last_prediction):
     # Convert the last timestamp to local time and add 60 minutes
-    last_time = convert_to_local_time(timestamps[-1])
+    last_time = convert_to_local_time(timestamps[-10])
     last_datetime = datetime.strptime(last_time, '%H:%M:%S') + timedelta(minutes=60)
     
     # Generate local times for the next 10 minutes
