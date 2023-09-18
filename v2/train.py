@@ -104,8 +104,12 @@ def convert_to_local_time(timestamp):
     return local_time.strftime('%H:%M:%S')
 
 def visualize_predictions(timestamps, last_prediction):
-    # Convert the last 10 timestamps to local time
-    local_times = [convert_to_local_time(ts) for ts in timestamps[-10:]]
+    # Convert the last timestamp to local time and add 60 minutes
+    last_time = convert_to_local_time(timestamps[-1])
+    last_datetime = datetime.strptime(last_time, '%H:%M:%S') + timedelta(minutes=60)
+    
+    # Generate local times for the next 10 minutes
+    local_times = [(last_datetime + timedelta(minutes=i)).strftime('%H:%M:%S') for i in range(1, 11)]
     
     # Plot the last prediction
     plt.figure(figsize=(10, 5))
@@ -117,6 +121,7 @@ def visualize_predictions(timestamps, last_prediction):
     plt.grid(True)
     plt.tight_layout()
     plt.show()
+
 
 def main():
     url = "https://bitcoin-data-collective-rzeraat.vercel.app/api/download_btc"
