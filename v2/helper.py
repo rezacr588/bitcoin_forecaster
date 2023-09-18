@@ -15,21 +15,29 @@ def download_data(url):
     return data
 
 def preprocess_data(data):
+    # Assuming 'TIME' is the timestamp and not used as a feature for training
     data = data.drop('TIME', axis=1)
+    
+    # Separate the target column
+    target = data['last_price']
+    data = data.drop('last_price', axis=1)
+    
+    # Normalize the features
     scaler = MinMaxScaler(feature_range=(0, 1))
     data_normalized = scaler.fit_transform(data)
-    return data_normalized, scaler
+    
+    # Normalize the target
+    target_scaler = MinMaxScaler(feature_range=(0, 1))
+    target_normalized = target_scaler.fit_transform(target.values.reshape(-1, 1))
+    
+    return data_normalized, target_normalized, scaler, target_scaler
 
-def evaluate_model(model, X_test, y_test, scaler):
+def evaluate_model(model, X_test, y_test, target_scaler):
     predictions = model.predict(X_test)
     
-    # Extracting the price column (assuming it's the third column)
-    y_test_price = y_test[:, 2]
-    predictions_price = predictions[:, 2]
-    
     # Inverting the scaling to get the original price values
-    y_test_original = scaler.inverse_transform(y_test)[:, 2]
-    predictions_original = scaler.inverse_transform(predictions)[:, 2]
+    y_test_original = target_scaler.inverse_transform(y_test)
+    predictions_original = target_scaler.inverse_transform(predictions)
     
     # Calculate metrics
     mae = mean_absolute_error(y_test_original, predictions_original)
@@ -39,14 +47,14 @@ def evaluate_model(model, X_test, y_test, scaler):
     
     return mae, mse, rmse, r2
 
-def split_data(data_normalized):
-    train_data, temp = train_test_split(data_normalized, test_size=0.3, shuffle=False)
-    val_data, test_data = train_test_split(temp, test_size=0.67, shuffle=False)
-    return train_data, val_data, test_data
+def split_data(data_normalized, target_normalized):
+    X_train, X_temp, y_train, y_temp = train_test_split(data_normalized, target_normalized, test_size=0.3, shuffle=False)
+    X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.67, shuffle=False)
+    return X_train, y_train, X_val, y_val, X_test, y_test
 
-def create_sequences(data, seq_length, steps_ahead=60):
+def create_sequences(data, target, seq_length):
     X, y = [], []
-    for i in range(len(data) - seq_length - steps_ahead + 1):
+    for i in range(len(data) - seq_length):
         X.append(data[i:i+seq_length])
-        y.append(data[i+seq_length+steps_ahead-1])
+        y.append(target[i+seq_length])
     return np.array(X), np.array(y)
