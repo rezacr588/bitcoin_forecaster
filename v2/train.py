@@ -3,9 +3,9 @@ import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
-from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import LSTM, Dense, Dropout, BatchNormalization
-from tensorflow.keras.callbacks import EarlyStopping
+from keras.models import Sequential, load_model
+from keras.layers import LSTM, Dense, Dropout, BatchNormalization
+from keras.callbacks import EarlyStopping
 import requests
 from io import StringIO
 import os
@@ -13,6 +13,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import matplotlib.pyplot as plt
 import datetime
 from datetime import datetime, timedelta
+from joblib import dump, load
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -127,6 +128,9 @@ def main():
     url = "https://bitcoin-data-collective-rzeraat.vercel.app/api/download_btc"
     data = download_data(url)
     data_normalized, target_normalized, scaler, target_scaler = preprocess_data(data)
+    # Save the scalers
+    dump(scaler, 'feature_scaler.pkl')
+    dump(target_scaler, 'target_scaler.pkl')
     X_train, y_train, X_val, y_val, X_test, y_test = split_data(data_normalized, target_normalized)
     seq_length = 60
     X_train, y_train = create_sequences(X_train, y_train, seq_length)
