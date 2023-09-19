@@ -56,22 +56,27 @@ def get_model(X_train):
         model = Sequential()
         
         # First LSTM layer with dropout and batch normalization
-        model.add(LSTM(100, input_shape=(X_train.shape[1], X_train.shape[2]), return_sequences=True))
+        model.add(LSTM(2000, input_shape=(X_train.shape[1], X_train.shape[2]), return_sequences=True))
         model.add(Dropout(0.2))
         model.add(BatchNormalization())
         
         # Second LSTM layer
-        model.add(LSTM(100, return_sequences=True))
+        model.add(LSTM(2000, return_sequences=True))
         model.add(Dropout(0.2))
         model.add(BatchNormalization())
         
         # Third LSTM layer
-        model.add(LSTM(100, return_sequences=True))
+        model.add(LSTM(2000, return_sequences=True))
         model.add(Dropout(0.2))
         model.add(BatchNormalization())
         
         # Fourth LSTM layer
-        model.add(LSTM(100, return_sequences=True))
+        model.add(LSTM(2000, return_sequences=True))
+        model.add(Dropout(0.2))
+        model.add(BatchNormalization())
+        
+        # Fourth LSTM layer
+        model.add(LSTM(2000, return_sequences=True))
         model.add(Dropout(0.2))
         model.add(BatchNormalization())
         
@@ -155,7 +160,7 @@ def main():
     
     # Extract the last 10 timestamps from the original data
     last_10_timestamps = data['TIME'].values[-10:]
-    print(predictions_60)
+    print(predictions_60[-1][-10:])
     
     # Visualize the last 10 minutes of predictions for the last sequence
     visualize_predictions(last_10_timestamps, predictions_60[-1][-10:])  # Focus on the last row and last 10 values
