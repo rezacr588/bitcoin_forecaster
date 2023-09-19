@@ -123,26 +123,28 @@ def visualize_predictions(timestamps, last_prediction):
     plt.tight_layout()
     plt.show()
 
-
 def main():
     url = "https://bitcoin-data-collective-rzeraat.vercel.app/api/download_btc"
     data = download_data(url)
     data_normalized, target_normalized, scaler, target_scaler = preprocess_data(data)
+    
     # Save the scalers
     dump(scaler, 'feature_scaler.pkl')
     dump(target_scaler, 'target_scaler.pkl')
-    X_train, y_train, X_val, y_val, X_test, y_test = split_data(data_normalized, target_normalized)
+    
     seq_length = 60
-    X_train, y_train = create_sequences(X_train, y_train, seq_length)
-    X_val, y_val = create_sequences(X_val, y_val, seq_length)
-    X_test, y_test = create_sequences(X_test, y_test, seq_length)
+    X, y = create_sequences(data_normalized, target_normalized, seq_length)
 
-    model = get_model(X_train)
-    history = train_model(model, X_train, y_train, X_val, y_val)
+    model = get_model(X)
+    
+    # Train the model using the entire dataset
+    early_stop = EarlyStopping(monitor='loss', patience=5, restore_best_weights=True)
+    history = model.fit(X, y, epochs=50, batch_size=60, shuffle=False, callbacks=[early_stop])
+    model.save('bitcoin_lstm_model.h5')
     
     # Print training progress details
-    for epoch, loss, val_loss in zip(range(1, len(history.history['loss']) + 1), history.history['loss'], history.history['val_loss']):
-        print(f"Epoch {epoch}/{len(history.history['loss'])} - loss: {loss:.4f} - val_loss: {val_loss:.4f}")
+    for epoch, loss in zip(range(1, len(history.history['loss']) + 1), history.history['loss']):
+        print(f"Epoch {epoch}/{len(history.history['loss'])} - loss: {loss:.4f}")
     
     # Print the model summary
     model.summary()
@@ -153,6 +155,7 @@ def main():
     
     # Extract the last 10 timestamps from the original data
     last_10_timestamps = data['TIME'].values[-10:]
+    print(predictions_60)
     
     # Visualize the last 10 minutes of predictions for the last sequence
     visualize_predictions(last_10_timestamps, predictions_60[-1][-10:])  # Focus on the last row and last 10 values
