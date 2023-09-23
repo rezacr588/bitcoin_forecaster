@@ -4,7 +4,7 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras.models import Sequential, load_model
-from keras.layers import LSTM, Dense, Dropout, BatchNormalization
+from keras.layers import LSTM, Dense, Dropout, BatchNormalization, Bidirectional
 from keras.callbacks import EarlyStopping
 import requests
 from io import StringIO
@@ -13,12 +13,12 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import make_scorer
 import matplotlib.pyplot as plt
-import datetime
 from datetime import datetime, timedelta
 from joblib import dump, load
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
 
 def download_data(url):
     response = requests.get(url)
@@ -126,10 +126,10 @@ def visualize_predictions(timestamps, last_prediction):
 
 def create_model(input_shape, units=50):
     model = Sequential()
-    model.add(LSTM(units, input_shape=input_shape, return_sequences=True))
+    model.add(Bidirectional(LSTM(units, return_sequences=True), input_shape=input_shape))
     model.add(Dropout(0.2))
     model.add(BatchNormalization())
-    model.add(LSTM(units, return_sequences=True))
+    model.add(Bidirectional(LSTM(units, return_sequences=True)))
     model.add(Dropout(0.2))
     model.add(BatchNormalization())
     model.add(Dense(60))
