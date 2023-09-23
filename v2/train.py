@@ -199,24 +199,26 @@ def main():
         model = load_model(model_path)
     else:
         print("Creating a new model...")
+        
+        # Expanded search space
         space = {
-            'units': hp.quniform('units', 60, 360, 60),
-            'dropout_rate': hp.uniform('dropout_rate', 0.1, 0.5),
-            'l1_value': hp.uniform('l1_value', 0.0001, 0.01),
-            'l2_value': hp.uniform('l2_value', 0.0001, 0.01)
+            'units': hp.quniform('units', 30, 500, 10),  # Expanded range for LSTM units
+            'dropout_rate': hp.uniform('dropout_rate', 0.05, 0.6),  # Expanded range for dropout rate
+            'l1_value': hp.loguniform('l1_value', np.log(0.00001), np.log(0.1)),  # Expanded range for L1 regularization
+            'l2_value': hp.loguniform('l2_value', np.log(0.00001), np.log(0.1))   # Expanded range for L2 regularization
         }
-
-
         
         trials = Trials()
-        best = fmin(lambda params: objective(params, X_train, y_train), space, algo=tpe.suggest, max_evals=10, trials=trials)
+        
+        # Increased the number of iterations for tuning to 50
+        best = fmin(lambda params: objective(params, X_train, y_train), space, algo=tpe.suggest, max_evals=50, trials=trials)
+        
         best_units = int(best['units'])
         best_dropout_rate = best['dropout_rate']
         best_l1_value = best['l1_value']
         best_l2_value = best['l2_value']
 
         model = create_advanced_model((X_train.shape[1], X_train.shape[2]), best_units, best_l1_value, best_l2_value, best_dropout_rate)
-
 
     early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
     history = model.fit(X_train, y_train, epochs=50, batch_size=60, validation_data=(X_val, y_val), shuffle=False, callbacks=[early_stop])
