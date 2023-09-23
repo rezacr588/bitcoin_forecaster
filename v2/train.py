@@ -18,6 +18,8 @@ from joblib import dump, load
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 from keras import regularizers
 from keras.layers import MultiHeadAttention
+from keras.layers import Input
+from keras.models import Model
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -126,44 +128,35 @@ def visualize_predictions(timestamps, last_prediction):
     plt.tight_layout()
     plt.show()
 
-def create_model(input_shape, units=50, l1_value=0.01, l2_value=0.01, dropout_rate=0.2):
-    model = Sequential()
-    model.add(Bidirectional(LSTM(units, return_sequences=True, kernel_regularizer=regularizers.l1_l2(l1=l1_value, l2=l2_value)), input_shape=input_shape))
-    model.add(Dropout(dropout_rate))
-    model.add(BatchNormalization())
-    model.add(Bidirectional(LSTM(units, return_sequences=True, kernel_regularizer=regularizers.l1_l2(l1=l1_value, l2=l2_value))))
-    model.add(Dropout(dropout_rate))
-    model.add(BatchNormalization())
-    model.add(Dense(60, kernel_regularizer=regularizers.l1_l2(l1=l1_value, l2=l2_value)))
-    model.compile(optimizer='adam', loss='mse')
-    return model
-
 def create_advanced_model(input_shape, units=50, l1_value=0.01, l2_value=0.01, dropout_rate=0.2):
-    model = Sequential()
+    inputs = Input(shape=input_shape)
     
     # First Bidirectional LSTM layer
-    model.add(Bidirectional(LSTM(units, return_sequences=True, kernel_regularizer=regularizers.l1_l2(l1=l1_value, l2=l2_value)), input_shape=input_shape))
-    model.add(Dropout(dropout_rate))
-    model.add(BatchNormalization())
+    x = Bidirectional(LSTM(units, return_sequences=True, kernel_regularizer=regularizers.l1_l2(l1=l1_value, l2=l2_value)))(inputs)
+    x = Dropout(dropout_rate)(x)
+    x = BatchNormalization()(x)
     
     # Multi-Head Attention Layer
-    model.add(MultiHeadAttention(num_heads=2, key_dim=units))
-    model.add(Dropout(dropout_rate))
-    model.add(BatchNormalization())
+    attn_layer = MultiHeadAttention(num_heads=2, key_dim=units)
+    attn_out = attn_layer(query=x, key=x, value=x)
+    x = tf.keras.layers.Add()([x, attn_out])  # Residual connection
+    x = Dropout(dropout_rate)(x)
+    x = BatchNormalization()(x)
     
     # Second Bidirectional LSTM layer
-    model.add(Bidirectional(LSTM(units, return_sequences=True, kernel_regularizer=regularizers.l1_l2(l1=l1_value, l2=l2_value))))
-    model.add(Dropout(dropout_rate))
-    model.add(BatchNormalization())
+    x = Bidirectional(LSTM(units, return_sequences=True, kernel_regularizer=regularizers.l1_l2(l1=l1_value, l2=l2_value)))(x)
+    x = Dropout(dropout_rate)(x)
+    x = BatchNormalization()(x)
     
     # Third Bidirectional LSTM layer
-    model.add(Bidirectional(LSTM(units, return_sequences=False, kernel_regularizer=regularizers.l1_l2(l1=l1_value, l2=l2_value))))
-    model.add(Dropout(dropout_rate))
-    model.add(BatchNormalization())
+    x = Bidirectional(LSTM(units, return_sequences=False, kernel_regularizer=regularizers.l1_l2(l1=l1_value, l2=l2_value)))(x)
+    x = Dropout(dropout_rate)(x)
+    x = BatchNormalization()(x)
     
     # Dense output layer
-    model.add(Dense(60, kernel_regularizer=regularizers.l1_l2(l1=l1_value, l2=l2_value)))
+    outputs = Dense(60, kernel_regularizer=regularizers.l1_l2(l1=l1_value, l2=l2_value))(x)
     
+    model = Model(inputs=inputs, outputs=outputs)
     model.compile(optimizer='adam', loss='mse')
     return model
 
@@ -173,7 +166,7 @@ def objective(params, X, y):
     l1_value = params['l1_value']
     l2_value = params['l2_value']
     
-    model = create_model((X.shape[1], X.shape[2]), units, l1_value, l2_value, dropout_rate)
+    model = create_advanced_model((X.shape[1], X.shape[2]), units, l1_value, l2_value, dropout_rate)
     
     history = model.fit(X, y, epochs=10, batch_size=60, validation_split=0.2, shuffle=False, verbose=0)
     
