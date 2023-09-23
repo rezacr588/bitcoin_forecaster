@@ -195,11 +195,15 @@ def main():
     
     # Extract the last 10 timestamps from the original data
     last_10_timestamps = data['TIME'].values[-10:]
-    print(predictions_60[-1][-10:])
+
+    # Extract the first 10 timestamps from the original data
+    first_10_timestamps = data['TIME'].values[:10]
+    
+    print(predictions_60)
     
     # Visualize the last 10 minutes of predictions for the last sequence
-    visualize_predictions(last_10_timestamps, predictions_60[-1][-10:])  # Focus on the last row and last 10 values
-    visualize_predictions(last_10_timestamps, predictions_60[-1][:10])  # Focus on the last row and last 10 values
+    visualize_predictions(last_10_timestamps, predictions_60[-1][-10:])  
+    visualize_predictions(first_10_timestamps, predictions_60[-1][:10])  
 
 if __name__ == "__main__":
     main()
