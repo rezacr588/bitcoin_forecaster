@@ -158,50 +158,42 @@ def main():
     
     seq_length = 60
     X, y = create_sequences(data_normalized, target_normalized, seq_length)
+    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, shuffle=False)
 
-    # Check if the model exists and load it, otherwise create a new one
     model_path = 'bitcoin_lstm_model.h5'
     if os.path.exists(model_path):
         print("Loading existing model...")
         model = load_model(model_path)
     else:
         print("Creating a new model...")
-        # Hyperparameter tuning and model creation code here...
         space = {
             'units': hp.quniform('units', 60, 360, 60),
             'dropout': hp.uniform('dropout', 0.1, 0.5)
         }
         
         trials = Trials()
-        best = fmin(lambda params: objective(params, X, y), space, algo=tpe.suggest, max_evals=10, trials=trials)
+        best = fmin(lambda params: objective(params, X_train, y_train), space, algo=tpe.suggest, max_evals=10, trials=trials)
         
         best_units = int(best['units'])
         best_dropout = best['dropout']
+        print(f"Best Units: {best_units}, Best Dropout: {best_dropout}")
         
-        model = create_model((X.shape[1], X.shape[2]), best_units)
+        model = create_model((X_train.shape[1], X_train.shape[2]), best_units)
 
-    # Train the model
-    history = model.fit(X, y, epochs=50, batch_size=60, shuffle=False)
+    early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+    history = model.fit(X_train, y_train, epochs=50, batch_size=60, validation_data=(X_val, y_val), shuffle=False, callbacks=[early_stop])
     
-    # Save the model after training
     model.save(model_path)
-    
-    # Print the model summary
     model.summary()
     
-    # Predict the next 60 minutes
     last_60_minutes_data = data_normalized[-60:]
     predictions_60 = predict_next_60_minutes(model, last_60_minutes_data, target_scaler)
     
-    # Extract the last 10 timestamps from the original data
     last_10_timestamps = data['TIME'].values[-10:]
-
-    # Extract the first 10 timestamps from the original data
     first_10_timestamps = data['TIME'].values[:10]
     
     print(predictions_60)
     
-    # Visualize the last 10 minutes of predictions for the last sequence
     visualize_predictions(last_10_timestamps, predictions_60[-1][-10:])  
     visualize_predictions(first_10_timestamps, predictions_60[-1][:10])  
 
