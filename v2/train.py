@@ -83,44 +83,6 @@ def create_sequences(data, target, seq_length, steps_ahead=60):
         y.append(target[i+seq_length:i+seq_length+steps_ahead])
     return np.array(X), np.array(y)
 
-def get_model(X_train):
-    if os.path.exists('bitcoin_lstm_model.h5'):
-        model = load_model('bitcoin_lstm_model.h5')
-    else:
-        model = Sequential()
-        
-        # First LSTM layer with dropout and batch normalization
-        model.add(LSTM(2000, input_shape=(X_train.shape[1], X_train.shape[2]), return_sequences=True))
-        model.add(Dropout(0.2))
-        model.add(BatchNormalization())
-        
-        # Second LSTM layer
-        model.add(LSTM(2000, return_sequences=True))
-        model.add(Dropout(0.2))
-        model.add(BatchNormalization())
-        
-        # Third LSTM layer
-        model.add(LSTM(2000, return_sequences=True))
-        model.add(Dropout(0.2))
-        model.add(BatchNormalization())
-        
-        # Fourth LSTM layer
-        model.add(LSTM(2000, return_sequences=True))
-        model.add(Dropout(0.2))
-        model.add(BatchNormalization())
-        
-        # Fourth LSTM layer
-        model.add(LSTM(2000, return_sequences=True))
-        model.add(Dropout(0.2))
-        model.add(BatchNormalization())
-        
-        # Dense layer
-        model.add(Dense(60))  # Output sequence of 60 prices
-        
-        # Compile the model
-        model.compile(optimizer='adam', loss='mse')
-    return model
-
 def train_model(model, X_train, y_train, X_val, y_val):
     early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
     history = model.fit(X_train, y_train, epochs=50, batch_size=60, validation_data=(X_val, y_val), shuffle=False, callbacks=[early_stop])
@@ -197,40 +159,39 @@ def main():
     seq_length = 60
     X, y = create_sequences(data_normalized, target_normalized, seq_length)
 
-    def objective(params):
-        units = int(params['units'])
-        dropout = params['dropout']
+    # Check if the model exists and load it, otherwise create a new one
+    model_path = 'bitcoin_lstm_model.h5'
+    if os.path.exists(model_path):
+        print("Loading existing model...")
+        model = load_model(model_path)
+    else:
+        print("Creating a new model...")
+        # Hyperparameter tuning and model creation code here...
+        space = {
+            'units': hp.quniform('units', 60, 360, 60),
+            'dropout': hp.uniform('dropout', 0.1, 0.5)
+        }
         
-        model = create_model((X.shape[1], X.shape[2]), units)
+        trials = Trials()
+        best = fmin(objective, space, algo=tpe.suggest, max_evals=10, trials=trials)
         
-        history = model.fit(X, y, epochs=10, batch_size=60, validation_split=0.2, shuffle=False, verbose=0)
+        best_units = int(best['units'])
+        best_dropout = best['dropout']
         
-        val_loss = history.history['val_loss'][-1]
-        return {'loss': val_loss, 'status': STATUS_OK}
+        model = create_model((X.shape[1], X.shape[2]), best_units)
 
-    space = {
-        'units': hp.quniform('units', 60, 360, 60),
-        'dropout': hp.uniform('dropout', 0.1, 0.5)
-    }
+    # Train the model
+    history = model.fit(X, y, epochs=50, batch_size=60, shuffle=False)
     
-    trials = Trials()
-    best = fmin(objective, space, algo=tpe.suggest, max_evals=10, trials=trials)
-    
-    best_units = int(best['units'])
-    best_dropout = best['dropout']
-    
-    best_model = create_model((X.shape[1], X.shape[2]), best_units)
-    history = best_model.fit(X, y, epochs=50, batch_size=60, shuffle=False)
-    
-    # Save the best model
-    best_model.save('bitcoin_lstm_model.h5')
+    # Save the model after training
+    model.save(model_path)
     
     # Print the model summary
-    best_model.summary()
+    model.summary()
     
     # Predict the next 60 minutes
     last_60_minutes_data = data_normalized[-60:]
-    predictions_60 = predict_next_60_minutes(best_model, last_60_minutes_data, target_scaler)
+    predictions_60 = predict_next_60_minutes(model, last_60_minutes_data, target_scaler)
     
     # Extract the last 10 timestamps from the original data
     last_10_timestamps = data['TIME'].values[-10:]
@@ -238,6 +199,8 @@ def main():
     
     # Visualize the last 10 minutes of predictions for the last sequence
     visualize_predictions(last_10_timestamps, predictions_60[-1][-10:])  # Focus on the last row and last 10 values
+    visualize_predictions(last_10_timestamps, predictions_60[-1][:10])  # Focus on the last row and last 10 values
 
 if __name__ == "__main__":
     main()
+
