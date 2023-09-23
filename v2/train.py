@@ -136,7 +136,7 @@ def create_model(input_shape, units=50):
     model.compile(optimizer='adam', loss='mse')
     return model
 
-def objective(params):
+def objective(params, X, y):
     units = int(params['units'])
     dropout = params['dropout']
     
@@ -173,7 +173,7 @@ def main():
         }
         
         trials = Trials()
-        best = fmin(objective, space, algo=tpe.suggest, max_evals=10, trials=trials)
+        best = fmin(lambda params: objective(params, X, y), space, algo=tpe.suggest, max_evals=10, trials=trials)
         
         best_units = int(best['units'])
         best_dropout = best['dropout']

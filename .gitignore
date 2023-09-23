@@ -2,3 +2,5 @@
 /models
 /venv
 /v2/bitcoin_lstm_model.h5
+/v2/target_scaler.pkl
+/v2/feature_scaler.pkl
