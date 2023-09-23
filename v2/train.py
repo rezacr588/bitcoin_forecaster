@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 from joblib import dump, load
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
+from keras import regularizers
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -124,23 +125,25 @@ def visualize_predictions(timestamps, last_prediction):
     plt.tight_layout()
     plt.show()
 
-def create_model(input_shape, units=50):
+def create_model(input_shape, units=50, l1_value=0.01, l2_value=0.01, dropout_rate=0.2):
     model = Sequential()
-    model.add(Bidirectional(LSTM(units, return_sequences=True), input_shape=input_shape))
-    model.add(Dropout(0.2))
+    model.add(Bidirectional(LSTM(units, return_sequences=True, kernel_regularizer=regularizers.l1_l2(l1=l1_value, l2=l2_value)), input_shape=input_shape))
+    model.add(Dropout(dropout_rate))
     model.add(BatchNormalization())
-    model.add(Bidirectional(LSTM(units, return_sequences=True)))
-    model.add(Dropout(0.2))
+    model.add(Bidirectional(LSTM(units, return_sequences=True, kernel_regularizer=regularizers.l1_l2(l1=l1_value, l2=l2_value))))
+    model.add(Dropout(dropout_rate))
     model.add(BatchNormalization())
-    model.add(Dense(60))
+    model.add(Dense(60, kernel_regularizer=regularizers.l1_l2(l1=l1_value, l2=l2_value)))
     model.compile(optimizer='adam', loss='mse')
     return model
 
 def objective(params, X, y):
     units = int(params['units'])
-    dropout = params['dropout']
+    dropout_rate = params['dropout_rate']
+    l1_value = params['l1_value']
+    l2_value = params['l2_value']
     
-    model = create_model((X.shape[1], X.shape[2]), units)
+    model = create_model((X.shape[1], X.shape[2]), units, l1_value, l2_value, dropout_rate)
     
     history = model.fit(X, y, epochs=10, batch_size=60, validation_split=0.2, shuffle=False, verbose=0)
     
@@ -168,17 +171,22 @@ def main():
         print("Creating a new model...")
         space = {
             'units': hp.quniform('units', 60, 360, 60),
-            'dropout': hp.uniform('dropout', 0.1, 0.5)
+            'dropout_rate': hp.uniform('dropout_rate', 0.1, 0.5),
+            'l1_value': hp.uniform('l1_value', 0.0001, 0.01),
+            'l2_value': hp.uniform('l2_value', 0.0001, 0.01)
         }
+
+
         
         trials = Trials()
         best = fmin(lambda params: objective(params, X_train, y_train), space, algo=tpe.suggest, max_evals=10, trials=trials)
-        
         best_units = int(best['units'])
-        best_dropout = best['dropout']
-        print(f"Best Units: {best_units}, Best Dropout: {best_dropout}")
-        
-        model = create_model((X_train.shape[1], X_train.shape[2]), best_units)
+        best_dropout_rate = best['dropout_rate']
+        best_l1_value = best['l1_value']
+        best_l2_value = best['l2_value']
+
+        model = create_model((X_train.shape[1], X_train.shape[2]), best_units, best_l1_value, best_l2_value, best_dropout_rate)
+
 
     early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
     history = model.fit(X_train, y_train, epochs=50, batch_size=60, validation_data=(X_val, y_val), shuffle=False, callbacks=[early_stop])
