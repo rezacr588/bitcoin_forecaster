@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 from joblib import dump, load
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 from keras import regularizers
+from keras.layers import MultiHeadAttention
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -137,6 +138,35 @@ def create_model(input_shape, units=50, l1_value=0.01, l2_value=0.01, dropout_ra
     model.compile(optimizer='adam', loss='mse')
     return model
 
+def create_advanced_model(input_shape, units=50, l1_value=0.01, l2_value=0.01, dropout_rate=0.2):
+    model = Sequential()
+    
+    # First Bidirectional LSTM layer
+    model.add(Bidirectional(LSTM(units, return_sequences=True, kernel_regularizer=regularizers.l1_l2(l1=l1_value, l2=l2_value)), input_shape=input_shape))
+    model.add(Dropout(dropout_rate))
+    model.add(BatchNormalization())
+    
+    # Multi-Head Attention Layer
+    model.add(MultiHeadAttention(num_heads=2, key_dim=units))
+    model.add(Dropout(dropout_rate))
+    model.add(BatchNormalization())
+    
+    # Second Bidirectional LSTM layer
+    model.add(Bidirectional(LSTM(units, return_sequences=True, kernel_regularizer=regularizers.l1_l2(l1=l1_value, l2=l2_value))))
+    model.add(Dropout(dropout_rate))
+    model.add(BatchNormalization())
+    
+    # Third Bidirectional LSTM layer
+    model.add(Bidirectional(LSTM(units, return_sequences=False, kernel_regularizer=regularizers.l1_l2(l1=l1_value, l2=l2_value))))
+    model.add(Dropout(dropout_rate))
+    model.add(BatchNormalization())
+    
+    # Dense output layer
+    model.add(Dense(60, kernel_regularizer=regularizers.l1_l2(l1=l1_value, l2=l2_value)))
+    
+    model.compile(optimizer='adam', loss='mse')
+    return model
+
 def objective(params, X, y):
     units = int(params['units'])
     dropout_rate = params['dropout_rate']
@@ -185,7 +215,7 @@ def main():
         best_l1_value = best['l1_value']
         best_l2_value = best['l2_value']
 
-        model = create_model((X_train.shape[1], X_train.shape[2]), best_units, best_l1_value, best_l2_value, best_dropout_rate)
+        model = create_advanced_model((X_train.shape[1], X_train.shape[2]), best_units, best_l1_value, best_l2_value, best_dropout_rate)
 
 
     early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)

@@ -8,8 +8,6 @@ Bitcoin Forecaster is a deep learning model designed to predict Bitcoin prices u
 - **Feature Engineering**: Employs techniques like rolling mean, MACD, and RSI to improve the model's predictive capabilities.
 - **Hyperparameter Tuning**: Uses Hyperopt for tuning model parameters to achieve optimal performance.
 
-## Getting Started:
-
 ### Prerequisites:
 
 - Python 3.x
@@ -18,7 +16,3 @@ Bitcoin Forecaster is a deep learning model designed to predict Bitcoin prices u
 - Scikit-learn
 - Pandas
 - NumPy
-
-### Installation:
-
-1. Clone the repository:
