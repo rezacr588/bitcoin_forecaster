@@ -20,6 +20,7 @@ from keras import regularizers
 from keras.layers import MultiHeadAttention
 from keras.layers import Input
 from keras.models import Model
+from keras.callbacks import ReduceLROnPlateau
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -85,12 +86,6 @@ def create_sequences(data, target, seq_length, steps_ahead=60):
         y.append(target[i+seq_length:i+seq_length+steps_ahead])
     return np.array(X), np.array(y)
 
-def train_model(model, X_train, y_train, X_val, y_val):
-    early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
-    history = model.fit(X_train, y_train, epochs=50, batch_size=60, validation_data=(X_val, y_val), shuffle=False, callbacks=[early_stop])
-    model.save('bitcoin_lstm_model.h5')
-    return history
-
 def predict_next_60_minutes(model, last_60_minutes_data, target_scaler):
     current_sequence = last_60_minutes_data.reshape(1, last_60_minutes_data.shape[0], last_60_minutes_data.shape[1])
     
@@ -126,7 +121,7 @@ def visualize_predictions(timestamps, last_prediction):
     plt.tight_layout()
     plt.show()
 
-def create_advanced_model(input_shape, units=50, l1_value=0.01, l2_value=0.01, dropout_rate=0.2):
+def create_advanced_model(input_shape, units=50, l1_value=0.01, l2_value=0.01, dropout_rate=0.2, learning_rate=0.001):
     inputs = Input(shape=input_shape)
     
     # First Bidirectional LSTM layer
@@ -154,8 +149,9 @@ def create_advanced_model(input_shape, units=50, l1_value=0.01, l2_value=0.01, d
     # Dense output layer
     outputs = Dense(60, kernel_regularizer=regularizers.l1_l2(l1=l1_value, l2=l2_value))(x)
     
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
     model = Model(inputs=inputs, outputs=outputs)
-    model.compile(optimizer='adam', loss='mse')
+    model.compile(optimizer=optimizer, loss='mse')
     return model
 
 def objective(params, X, y):
@@ -163,13 +159,49 @@ def objective(params, X, y):
     dropout_rate = params['dropout_rate']
     l1_value = params['l1_value']
     l2_value = params['l2_value']
+    learning_rate = params['learning_rate']
     
-    model = create_advanced_model((X.shape[1], X.shape[2]), units, l1_value, l2_value, dropout_rate)
+    model = create_advanced_model((X.shape[1], X.shape[2]), units, l1_value, l2_value, dropout_rate, learning_rate)
     
     history = model.fit(X, y, epochs=10, batch_size=60, validation_split=0.2, shuffle=False, verbose=0)
     
     val_loss = history.history['val_loss'][-1]
     return {'loss': val_loss, 'status': STATUS_OK}
+
+def train_model(X_train, y_train, X_val, y_val):
+    model_path = 'bitcoin_lstm_model.h5'
+    if os.path.exists(model_path):
+        print("Loading existing model...")
+        model = load_model(model_path)
+    else:
+        print("Creating a new model...")
+        
+        space = {
+            'units': hp.quniform('units', 30, 500, 10),
+            'dropout_rate': hp.uniform('dropout_rate', 0.05, 0.6),
+            'l1_value': hp.loguniform('l1_value', np.log(0.00001), np.log(0.1)),
+            'l2_value': hp.loguniform('l2_value', np.log(0.00001), np.log(0.1)),
+            'learning_rate': hp.loguniform('learning_rate', np.log(0.0001), np.log(0.1))
+        }
+        
+        trials = Trials()
+        best = fmin(lambda params: objective(params, X_train, y_train), space, algo=tpe.suggest, max_evals=50, trials=trials)
+        
+        best_units = int(best['units'])
+        best_dropout_rate = best['dropout_rate']
+        best_l1_value = best['l1_value']
+        best_l2_value = best['l2_value']
+        best_learning_rate = best['learning_rate']
+
+        model = create_advanced_model((X_train.shape[1], X_train.shape[2]), best_units, best_l1_value, best_l2_value, best_dropout_rate, best_learning_rate)
+
+    early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+    history = model.fit(X_train, y_train, epochs=50, batch_size=60, validation_data=(X_val, y_val), shuffle=False, callbacks=[early_stop])
+    
+    model.save(model_path)
+    model.summary()
+    
+    return model
 
 def main():
     url = "https://bitcoin-data-collective-rzeraat.vercel.app/api/download_btc"
@@ -184,38 +216,7 @@ def main():
     X, y = create_sequences(data_normalized, target_normalized, seq_length)
     X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, shuffle=False)
 
-    model_path = 'bitcoin_lstm_model.h5'
-    if os.path.exists(model_path):
-        print("Loading existing model...")
-        model = load_model(model_path)
-    else:
-        print("Creating a new model...")
-        
-        # Expanded search space
-        space = {
-            'units': hp.quniform('units', 30, 500, 10),  # Expanded range for LSTM units
-            'dropout_rate': hp.uniform('dropout_rate', 0.05, 0.6),  # Expanded range for dropout rate
-            'l1_value': hp.loguniform('l1_value', np.log(0.00001), np.log(0.1)),  # Expanded range for L1 regularization
-            'l2_value': hp.loguniform('l2_value', np.log(0.00001), np.log(0.1))   # Expanded range for L2 regularization
-        }
-        
-        trials = Trials()
-        
-        # Increased the number of iterations for tuning to 50
-        best = fmin(lambda params: objective(params, X_train, y_train), space, algo=tpe.suggest, max_evals=50, trials=trials)
-        
-        best_units = int(best['units'])
-        best_dropout_rate = best['dropout_rate']
-        best_l1_value = best['l1_value']
-        best_l2_value = best['l2_value']
-
-        model = create_advanced_model((X_train.shape[1], X_train.shape[2]), best_units, best_l1_value, best_l2_value, best_dropout_rate)
-
-    early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
-    history = model.fit(X_train, y_train, epochs=50, batch_size=60, validation_data=(X_val, y_val), shuffle=False, callbacks=[early_stop])
-    
-    model.save(model_path)
-    model.summary()
+    model = train_model(X_train, y_train, X_val, y_val)
     
     last_60_minutes_data = data_normalized[-60:]
     predictions_60 = predict_next_60_minutes(model, last_60_minutes_data, target_scaler)
@@ -230,4 +231,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -1,27 +1,34 @@
-import os
-
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-
-from train_model import train
-from evaluate import evaluate
-from predict import predict
-from src.data.data_fetcher import fetch_and_save_csv
+from data_handler import DataHandler
+from model_trainer import ModelTrainer
+from utils import Utils
 
 def main():
-    while True:
-        choice = input("Enter 'train' to train the model, 'predict' to make a prediction, or 'exit' to quit: ").lower()
-        if choice == 'train':
-            train()
-        elif choice == 'predict':
-            predict()
-        elif choice == 'evaluate':
-            evaluate()
-        elif choice == 'fetch':
-            fetch_and_save_csv()
-        elif choice == 'exit':
-            break
-        else:
-            print("Invalid choice. Please try again.")
+    # 1. Download and preprocess the data
+    url = "https://bitcoin-data-collective-rzeraat.vercel.app/api/download_btc"
+    data_handler = DataHandler(url)
+    data_normalized, target_normalized, scaler, target_scaler = data_handler.preprocess_data()
+
+    # Save the scalers
+    Utils.save_scalers([scaler, target_scaler], ['feature_scaler.pkl', 'target_scaler.pkl'])
+
+    # 2. Create sequences for training
+    seq_length = 60
+    X, y = Utils.create_sequences(data_normalized, target_normalized, seq_length)
+
+    # 3. Train the model
+    model_trainer = ModelTrainer(X, y)
+    model = model_trainer.train_model()
+
+    # 4. Make predictions for the next 60 minutes
+    last_60_minutes_data = data_normalized[-60:]
+    predictions_60 = Utils.predict_next_60_minutes(model, last_60_minutes_data, target_scaler)
+
+    # 5. Visualize the predictions
+    last_10_timestamps = data_handler.data['TIME'].values[-10:]
+    first_10_timestamps = data_handler.data['TIME'].values[:10]
+
+    Utils.visualize_predictions(last_10_timestamps, predictions_60[-1][-10:], title="Bitcoin Price Predictions for the Next 10 Minutes")
+    Utils.visualize_predictions(first_10_timestamps, predictions_60[-1][:10], title="Bitcoin Price Predictions for the First 10 Minutes")
 
 if __name__ == "__main__":
     main()
