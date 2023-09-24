@@ -9,6 +9,7 @@ from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 
 from data_handler import DataHandler
 import os
+import matplotlib.pyplot as plt
 
 class ModelTrainer:
     def __init__(self, X, y):
@@ -37,6 +38,17 @@ class ModelTrainer:
         model = Model(inputs=inputs, outputs=outputs)
         model.compile(optimizer=optimizer, loss='mse')
         return model
+
+    def visualize_training_progress(self, history):
+        plt.figure(figsize=(12, 6))
+        plt.plot(history.history['loss'], label='Training Loss', color='blue')
+        plt.title('Training Loss over Epochs')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
 
     def objective(self, params, X, y):
         units = int(params['units'])
@@ -75,4 +87,5 @@ class ModelTrainer:
         history = model.fit(self.X, self.y, epochs=50, batch_size=60, shuffle=False, callbacks=[early_stop])
         model.save(self.model_path)
         model.summary()
+        self.visualize_training_progress(history)
         return model
