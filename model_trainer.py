@@ -7,8 +7,6 @@ from keras.layers import MultiHeadAttention
 import tensorflow as tf
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 from sklearn.model_selection import KFold
-
-from data_handler import DataHandler
 import os
 import matplotlib.pyplot as plt
 
@@ -57,10 +55,13 @@ class ModelTrainer:
         l1_value = params['l1_value']
         l2_value = params['l2_value']
         learning_rate = params['learning_rate']
+        
         model = self.create_advanced_model((X.shape[1], X.shape[2]), units, l1_value, l2_value, dropout_rate, learning_rate)
-        history = model.fit(X, y, epochs=10, batch_size=60, validation_split=0.2, shuffle=False, verbose=0)
-        val_loss = history.history['val_loss'][-1]
-        return {'loss': val_loss, 'status': STATUS_OK}
+        
+        # Use cross-validation to evaluate the model
+        avg_val_loss = self.cross_validate_model(model, X, y)
+        
+        return {'loss': avg_val_loss, 'status': STATUS_OK}
 
     def train_model(self):
         if os.path.exists(self.model_path):
@@ -91,27 +92,48 @@ class ModelTrainer:
         self.visualize_training_progress(history)
         return model
 
-    def cross_validate(self, n_splits=5):
+    def optimize_hyperparameters_with_cross_validation(self):
+        space = {
+            'units': hp.quniform('units', 30, 500, 10),
+            'dropout_rate': hp.uniform('dropout_rate', 0.05, 0.6),
+            'l1_value': hp.loguniform('l1_value', np.log(0.00001), np.log(0.1)),
+            'l2_value': hp.loguniform('l2_value', np.log(0.00001), np.log(0.1)),
+            'learning_rate': hp.loguniform('learning_rate', np.log(0.0001), np.log(0.1))
+        }
+        trials = Trials()
+        best = fmin(lambda params: self.objective(params, self.X, self.y), space, algo=tpe.suggest, max_evals=50, trials=trials)
+        return best
+
+    def train_model_with_best_hyperparameters(self, best_hyperparameters):
+        best_units = int(best_hyperparameters['units'])
+        best_dropout_rate = best_hyperparameters['dropout_rate']
+        best_l1_value = best_hyperparameters['l1_value']
+        best_l2_value = best_hyperparameters['l2_value']
+        best_learning_rate = best_hyperparameters['learning_rate']
+
+        model = self.create_advanced_model((self.X.shape[1], self.X.shape[2]), best_units, best_l1_value, best_l2_value, best_dropout_rate, best_learning_rate)
+        
+        early_stop = EarlyStopping(monitor='loss', patience=5, restore_best_weights=True)
+        history = model.fit(self.X, self.y, epochs=50, batch_size=60, shuffle=False, callbacks=[early_stop])
+        model.save(self.model_path)
+        model.summary()
+        self.visualize_training_progress(history)
+        return model
+
+    def cross_validate_model(self, model, X, y, n_splits=5):
         kfold = KFold(n_splits=n_splits, shuffle=True, random_state=42)
-        fold_num = 1
         val_losses = []
 
-        for train_idx, val_idx in kfold.split(self.X, self.y):
-            print(f"Training on fold {fold_num}/{n_splits}...")
-            X_train, X_val = self.X[train_idx], self.X[val_idx]
-            y_train, y_val = self.y[train_idx], self.y[val_idx]
-
-            model = self.create_advanced_model((X_train.shape[1], X_train.shape[2]))
+        for train_idx, val_idx in kfold.split(X, y):
+            X_train, X_val = X[train_idx], X[val_idx]
+            y_train, y_val = y[train_idx], y[val_idx]
+            
             early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
             history = model.fit(X_train, y_train, epochs=50, batch_size=60, validation_data=(X_val, y_val), shuffle=False, callbacks=[early_stop])
             
             # Store the validation loss for this fold
             val_losses.append(history.history['val_loss'][-1])
-            
-            fold_num += 1
 
         # Compute average validation loss across all folds
         avg_val_loss = np.mean(val_losses)
-        print(f"Average validation loss after {n_splits}-fold cross-validation: {avg_val_loss:.4f}")
-
         return avg_val_loss

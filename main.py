@@ -24,11 +24,11 @@ def main():
     # 3. Initialize the model trainer
     model_trainer = ModelTrainer(X, y)
 
-    # 4. Cross-validate the model
-    model_trainer.cross_validate(n_splits=5)
+    # 4. Perform hyperparameter optimization with cross-validation
+    best_hyperparameters = model_trainer.optimize_hyperparameters_with_cross_validation()
 
-    # 5. Train the model on the entire dataset
-    model = model_trainer.train_model()
+    # 5. Train the model on the entire dataset using the best hyperparameters
+    model = model_trainer.train_model_with_best_hyperparameters(best_hyperparameters)
 
     # 6. Make predictions for the next 60 minutes
     last_60_minutes_data = data_normalized[-60:]
