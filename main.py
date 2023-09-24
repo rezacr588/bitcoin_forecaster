@@ -1,11 +1,17 @@
 from data_handler import DataHandler
 from model_trainer import ModelTrainer
 from utils import Utils
+import os
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 def main():
     # 1. Download and preprocess the data
     url = "https://bitcoin-data-collective-rzeraat.vercel.app/api/download_btc"
     data_handler = DataHandler(url)
+    # Download the data
+    data_handler.download_data()
+    
     data_normalized, target_normalized, scaler, target_scaler = data_handler.preprocess_data()
 
     # Save the scalers
