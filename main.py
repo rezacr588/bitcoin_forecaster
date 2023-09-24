@@ -32,7 +32,7 @@ def main():
     last_10_timestamps = data_handler.data['TIME'].values[-10:]
     first_10_timestamps = data_handler.data['TIME'].values[:10]
 
-    Utils.visualize_predictions(last_10_timestamps, predictions_60[-1][-10:], title="Bitcoin Price Predictions for the Next 10 Minutes")
+    Utils.visualize_predictions(last_10_timestamps, predictions_60[-1][-10:], title="Bitcoin Price Predictions for the Last 10 Minutes")
     Utils.visualize_predictions(first_10_timestamps, predictions_60[-1][:10], title="Bitcoin Price Predictions for the First 10 Minutes")
 
 if __name__ == "__main__":
