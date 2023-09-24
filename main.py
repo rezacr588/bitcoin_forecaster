@@ -15,15 +15,20 @@ def main():
     seq_length = 60
     X, y = Utils.create_sequences(data_normalized, target_normalized, seq_length)
 
-    # 3. Train the model
+    # 3. Initialize the model trainer
     model_trainer = ModelTrainer(X, y)
+
+    # 4. Cross-validate the model
+    model_trainer.cross_validate(n_splits=5)
+
+    # 5. Train the model on the entire dataset
     model = model_trainer.train_model()
 
-    # 4. Make predictions for the next 60 minutes
+    # 6. Make predictions for the next 60 minutes
     last_60_minutes_data = data_normalized[-60:]
     predictions_60 = Utils.predict_next_60_minutes(model, last_60_minutes_data, target_scaler)
 
-    # 5. Visualize the predictions
+    # 7. Visualize the predictions
     last_10_timestamps = data_handler.data['TIME'].values[-10:]
     first_10_timestamps = data_handler.data['TIME'].values[:10]
 
