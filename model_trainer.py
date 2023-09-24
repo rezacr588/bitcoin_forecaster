@@ -6,6 +6,7 @@ from keras import regularizers
 from keras.layers import MultiHeadAttention
 import tensorflow as tf
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
+from sklearn.model_selection import KFold
 
 from data_handler import DataHandler
 import os
@@ -89,3 +90,28 @@ class ModelTrainer:
         model.summary()
         self.visualize_training_progress(history)
         return model
+
+    def cross_validate(self, n_splits=5):
+        kfold = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+        fold_num = 1
+        val_losses = []
+
+        for train_idx, val_idx in kfold.split(self.X, self.y):
+            print(f"Training on fold {fold_num}/{n_splits}...")
+            X_train, X_val = self.X[train_idx], self.X[val_idx]
+            y_train, y_val = self.y[train_idx], self.y[val_idx]
+
+            model = self.create_advanced_model((X_train.shape[1], X_train.shape[2]))
+            early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+            history = model.fit(X_train, y_train, epochs=50, batch_size=60, validation_data=(X_val, y_val), shuffle=False, callbacks=[early_stop])
+            
+            # Store the validation loss for this fold
+            val_losses.append(history.history['val_loss'][-1])
+            
+            fold_num += 1
+
+        # Compute average validation loss across all folds
+        avg_val_loss = np.mean(val_losses)
+        print(f"Average validation loss after {n_splits}-fold cross-validation: {avg_val_loss:.4f}")
+
+        return avg_val_loss
