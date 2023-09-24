@@ -23,7 +23,6 @@ from keras.models import Model
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-
 def download_data(url):
     response = requests.get(url)
     data = pd.read_csv(StringIO(response.text))
@@ -58,6 +57,10 @@ def feature_engineering(data):
     return data
 
 def preprocess_data(data):
+    # Data Cleaning: Remove any extra quotes and convert to float
+    for col in data.columns:
+        data[col] = data[col].map(lambda x: float(x.replace('"', '')) if isinstance(x, str) else x)
+        
     # Feature Engineering
     data = feature_engineering(data)
     
@@ -74,11 +77,6 @@ def preprocess_data(data):
     target_normalized = target_scaler.fit_transform(target.values.reshape(-1, 1))
     
     return data_normalized, target_normalized, scaler, target_scaler
-
-def split_data(data_normalized, target_normalized):
-    X_train, X_temp, y_train, y_temp = train_test_split(data_normalized, target_normalized, test_size=0.3, shuffle=False)
-    X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.67, shuffle=False)
-    return X_train, y_train, X_val, y_val, X_test, y_test
 
 def create_sequences(data, target, seq_length, steps_ahead=60):
     X, y = [], []
